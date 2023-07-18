@@ -1,5 +1,8 @@
 # RoboPlace_client
 
+## Library for ELKS
+- If you wanna use this code, you need a custom Jaculus library, you can find it at this repo (https://github.com/C2Coder/jacserial) under the jaculus-lib folder there is a jacserial.ts file. Just add this file to the libs folder (where is the colors.ts file) in you Jaculus project.
+
 ## How to use
 - Git clone the repo
 `git clone https://github.com/C2Coder/RoboPlace_client`
@@ -14,3 +17,4 @@
     `python3 ./RoboPlaceJaculus.py <port>` and put the port that your elks is connected, on windows something like COM26
     - if you have something else, like microbit connected
     `python3 ./RoboPlaceNormal.py <port>`
+- If something doesnt work, send me a message on discord (@C2Coder)
