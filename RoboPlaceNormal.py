@@ -79,6 +79,9 @@ class Game:
 # ========================= SCREEN class ========================= #
 
 class Screen:
+    chars = ["a", "b", "c", "d", "e", "f", "g", "h",
+         "i", "j", "k", "l", "m", "n", "o", "p",]
+
     colors = [
 
         "white",
@@ -128,6 +131,11 @@ class Screen:
     # create array of Game size
     def init():
         Screen.pixels = [['white' for i in range(Game.size)] for j in range(Game.size)]
+        req = requests.get(url=server_ip +'/get_pixels')
+        response = req.text
+        for y in range(100):
+            for x in range(100):
+                Screen.pixels[x][y] = Screen.colors[Screen.chars.index(response[(y*100)+x])]
     
     # draw changes to list
     def draw_changes():
