@@ -213,7 +213,7 @@ def main():
                 elif event.type == pygame.USEREVENT_DROPFILE:
                     while True:
                         # read serial
-                        line = jac.re()
+                        line = jac.readline()
                         if len(line) == 0:
                             break  # break from loop
                         toks = parse(line)
