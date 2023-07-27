@@ -29,8 +29,8 @@ try:
 except:
     print(f'Usage ./RoboPlaceJaculus.py <port>')
     print()
-    print(f'Example: ./RoboPlace.py COM26')
-    print(f'Example: ./RoboPlace.py /dev/ttyACM0')
+    print(f'Example: ./RoboPlaceJaculus.py COM26')
+    print(f'Example: ./RoboPlaceJaculus.py /dev/ttyACM0')
     exit()
 
 
@@ -67,9 +67,7 @@ class Game:
                     Game.changes.append([toks[2], toks[3], toks[4].lower()])
 
                     obj = {toks[2] + "_" + toks[3]: toks[4].lower()}
-                    print(obj)
-                    req = requests.post(url=server_ip +'/post', data=obj)
-
+                    req = requests.post(url=server_ip +'/post', json=obj)
             elif cmd == 'test':
                 print(f'{user_id} >>> {toks[1]}')
         except Exception:
@@ -122,7 +120,6 @@ class Screen:
     }
 
     DEFAULT_COLOR = "white"
-    
 
     pixels = []
     pixel_size = Game.window_size / Game.size
@@ -158,15 +155,9 @@ class Screen:
 
 # parser
 def parse(input):
-    try:
-        input = input.decode('ascii').rstrip().lstrip()
-    except Exception:
-        return None
-    data = re.split(r" +", input)
-
+    data = input.split(" ")
     if len(data) < 2:
         return None
-
     return data
 
 
