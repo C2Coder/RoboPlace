@@ -18,3 +18,4 @@
     - if you have something else, like microbit connected
     `python3 ./RoboPlaceNormal.py <port>`
 - If something doesnt work, send me a message on discord (@C2Coder)
+- For the people that wanna see the code that runs on the vercel server (https://github.com/RoboPlace_server_vercel)
