@@ -27,10 +27,12 @@ try:
     port = sys.argv[1]
     baud = 115200
 except:
+    print()
     print(f'Usage ./RoboPlaceNormal.py <port>')
     print()
     print(f'Example: ./RoboPlaceNormal.py COM26')
     print(f'Example: ./RoboPlaceNormal.py /dev/ttyACM0')
+    print()
     exit()
 
 
