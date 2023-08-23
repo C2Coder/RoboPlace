@@ -42,7 +42,7 @@ except:
 class Game:
     id_timeouts = {}
 
-    timeout_interval = 10000 # 10s
+    timeout_interval = 5000 # 5s
     
     size = data.size
     window_size = data.window_size
