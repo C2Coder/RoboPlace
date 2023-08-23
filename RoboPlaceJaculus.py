@@ -16,6 +16,7 @@ from pygame.locals import (
 )
 
 server_ip = 'https://roboplace.vercel.app'
+#server_ip = 'http://localhost:8000'
 
 class data:
     window_size = 800
@@ -56,7 +57,7 @@ class Game:
         cmd = toks[1]
         
          # Handle timeouts
-        if user_id in Game.id_timeouts:
+        if user_id in Game.id_timeouts and user_id != "ELKS":
             return
         else:
             Game.id_timeouts[user_id] = pygame.time.get_ticks()
@@ -69,7 +70,10 @@ class Game:
                     Game.changes.append([toks[2], toks[3], toks[4].lower()])
 
                     obj = {toks[2] + "_" + toks[3]: toks[4].lower()}
+                    #print(obj)
+                    
                     req = requests.post(url=server_ip +'/post', json=obj)
+                    #print(req.text)
             elif cmd == 'test':
                 print(f'{user_id} >>> {toks[1]}')
         except Exception:
