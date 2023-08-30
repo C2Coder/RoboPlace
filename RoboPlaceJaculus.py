@@ -3,7 +3,6 @@
 import pygame
 import sys
 import jacserial
-import re
 import requests
 
 
