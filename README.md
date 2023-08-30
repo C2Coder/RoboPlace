@@ -1,11 +1,13 @@
-# RoboPlace_client
+# RoboPlace
 
-## Library for ELKS
-- If you wanna use this code, you need a custom Jaculus library, you can find it at this repo (https://github.com/C2Coder/jacserial) under the jaculus-lib folder there is a jacserial.ts file. Just add this file to the libs folder (where is the colors.ts file) in you Jaculus project.
+## Library for Jaculus
+- Custom library is in the example projects included in this project
+- Sender example - a simple example that sends paint commands on the push of a button
+- Reciever example - a simple example that send commands which it recieves from radio
 
 ## How to use
 - Git clone the repo
-`git clone https://github.com/C2Coder/RoboPlace_client`
+`git clone https://github.com/C2Coder/RoboPlace`
 
 - Open the downloaded folder
 
@@ -13,9 +15,11 @@
 `pip install -r requirements.txt`
 
 - Run the app 
+    - `python3 ./RoboPlace.py <port> <Jaculus or Normal> <no-post (optional)>`
     - if you have a board with Jaculus connected 
-    `python3 ./RoboPlaceJaculus.py <port>` and put the port that your elks is connected, on windows something like COM26
+    `python3 ./RoboPlace.py <port> Jaculus` and put the port that your elks is connected, on windows something like COM26
     - if you have something else, like microbit connected
-    `python3 ./RoboPlaceNormal.py <port>`
+    `python3 ./RoboPlace.py <port> Normal`
+    - if you don't want to send data to server `python3 ./RoboPlace.py <port> Jaculus no-post`
 - If something doesnt work, send me a message on discord (@C2Coder)
 - For the people that wanna see the code that runs on the vercel server (https://github.com/C2Coder/RoboPlace_server_vercel)
