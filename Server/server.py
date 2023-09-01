@@ -4,9 +4,9 @@ import os
 import pickle
 import socket
 
+# auto setup script.js
 local_ip = socket.gethostbyname(socket.gethostname())
-port = 80
-
+port = 8000
 
 pixels = [[0 for i in range(100)] for j in range(100)]
 
@@ -107,5 +107,5 @@ def handle_incoming():
 
 if __name__ == '__main__':
     app.static_folder = "static"
-    app.run(host="0.0.0.0", port=80)
-    
+    app.run(host="0.0.0.0", port=port)
+

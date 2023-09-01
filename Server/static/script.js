@@ -1,4 +1,4 @@
-server_ip = 'https://10.0.1.23'
+server_ip = 'https://10.0.1.30:8000'
 
 colors = [
   "#FFFFFF",
