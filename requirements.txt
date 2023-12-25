@@ -1,4 +1,8 @@
 pygame
 requests
+flask
+flask_cors
 schedule
+websockets
+netifaces
 git+https://github.com/C2Coder/jacserial@v1.2

@@ -1,4 +1,7 @@
-server_ip = 'https://10.0.1.30:8000'
+server_ip = 'http://10.0.1.30:8000'
+size = 10
+
+
 
 colors = [
   "#FFFFFF",
@@ -48,7 +51,7 @@ function start() {
 
   display_div = document.getElementById("display");
 
-  for (let id = 0; id < 10000; id++) {
+  for (let id = 0; id < (size*size); id++) {
     new_div = document.createElement("div");
     //rand_color = Math.floor(Math.random() * 16777215).toString(16);
     //color_string = "#" + rand_color;
@@ -85,7 +88,7 @@ function update() {
     //console.log(raw_pixels);
     //raw_pixels = raw_pixels.replaceAll('\n')
     pixels = document.getElementsByClassName('pixel');
-    for (let index = 0; index < 10000; index++) {
+    for (let index = 0; index < (size*size); index++) {
       pixels[index].style.backgroundColor = colors[chars.indexOf(raw_pixels[index])]
     }
     raw_pixels = ""

@@ -1,14 +1,35 @@
+#!/bin/python3
 from flask import Flask, request
 from flask_cors import CORS
+import netifaces as ni
 import os
 import pickle
-import socket
 
-# auto setup script.js
-local_ip = socket.gethostbyname(socket.gethostname())
+size = 10
 port = 8000
 
-pixels = [[0 for i in range(100)] for j in range(100)]
+def get_private_ip():
+    try:
+        # Get a list of all interfaces
+        interfaces = ni.interfaces()
+
+        # Iterate through interfaces to find the one that's not loopback and has an IP address
+        for interface in interfaces:
+            if interface != 'lo':
+                iface_details = ni.ifaddresses(interface)
+                if ni.AF_INET in iface_details:
+                    ip = iface_details[ni.AF_INET][0]['addr']
+                    return ip
+        return None
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+local_ip = get_private_ip()
+print(local_ip)
+
+pixels = [[0 for i in range(size)] for j in range(size)]
+
 
 def save_pixels():
     global pixels
@@ -22,14 +43,30 @@ def load_pixels():
     pixels = pickle.load(f)
 
 
-with open("static/script.js", 'r') as file:
-    lines = file.readlines()
+def edit_script():
+    global local_ip
 
-lines[0] = "server_ip = 'https://" + str(local_ip) + ":" + str(port) + "'\n"
 
-with open("static/script.js", 'w') as file:
-    file.writelines(lines)
+    with open("static/script.js", 'r') as file:
+        lines = file.readlines()
 
+    lines[0] = f"server_ip = 'http://{local_ip}:{port}'\n"
+    lines[1] = f"size = {size}\n"
+
+    with open("static/script.js", 'w') as file:
+        file.writelines(lines)
+
+
+        
+    with open("static/style.css", 'r') as file:
+        lines = file.readlines()
+
+    lines[1] = f"  --size: {size};\n"
+
+    with open("static/style.css", 'w') as file:
+        file.writelines(lines)
+
+edit_script()
 
 if os.path.isfile("save.txt"):
     load_pixels()
@@ -54,12 +91,7 @@ CORS(app)
 def main_page_response():
     with open("static/index.htm") as index_file:
         return index_file.read()
-
-
-@app.route('/error', methods=['GET'])
-def error_response():
-    return error_msg
-
+    
 # request handlers
 
 @app.route('/get_pixels', methods=['GET'])
@@ -76,31 +108,27 @@ def handle_request():
 
 @app.route('/post', methods=['POST'])
 def handle_incoming():
-    global pixels, error_msg
+    global pixels
     if request.method == 'POST':
-        # Handle POST request
         try:
-            data_in = str(request.get_json()).removeprefix("b")
-            #print(data_in)
+            data_in = str(request.get_json()).removeprefix("b").lower()
             data_raw = data_in.replace("{", "").replace("}", "").replace("'", "").replace(":", "_").replace(" ", "")
-            #print(data_raw)
             data = data_raw.split("_")
             if data[0] == "fill":
                 if not data[1] in colors:
                     return "wrong color"
 
-                for y in range(100):
-                    for x in range(100):
+                for y in range(size):
+                    for x in range(size):
                         pixels[x][y] = int(colors.index(data[1]))
 
-                return "gut"
-
+                return "pass"
             else:
                 if not data[2] in colors:
                     return "wrong color"
                 
                 pixels[int(data[0])][int(data[1])] = int(colors.index(data[2]))
-            return "gut" # idk why, but this was the first thing that came to mind
+            return "pass"
         except:
             return "failed"
 

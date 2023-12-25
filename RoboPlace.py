@@ -15,8 +15,6 @@ from pygame.locals import (
 )
 
 server_ip = 'https://roboplace.vercel.app'
-#server_ip = 'http://localhost:8000'
-
 
 class data:
     window_size = 800
@@ -37,7 +35,7 @@ try:
         post = True
 except:
     print()
-    print(f'Usage ./RoboPlace.py <port> <Jaculus or Normal> <no-post (optional) >')
+    print(f'Usage ./RoboPlace.py <port> <Jaculus or Normal> <no-post (optional)>')
     print()
     print(f'Example: python3 RoboPlace.py COM26 Normal no-post')
     print(f'Example: python3 RoboPlace.py /dev/ttyACM0 Jaculus')

@@ -29,7 +29,7 @@ ser = jacserial.Serial(port, 115200, timeout=1)
 start_time = math.floor(time.time())
 
 timeouts = {}
-timeout = 5 # 5 seconds
+timeout = 5 # seconds
 
 chars = ["a", "b", "c", "d", "e", "f", "g", "h",
          "i", "j", "k", "l", "m", "n", "o", "p",]
@@ -126,7 +126,7 @@ def send_change(x, y, color):
     obj = {str(x) + "_" + str(y): str(color)}
     req = requests.post(url=server_ip + '/post', json=obj)
 
-    if (req.text != "gut"):
+    if (req.text != "pass"):
         # fuck, something went wrong
         print("Something went wrong on the server")
 
