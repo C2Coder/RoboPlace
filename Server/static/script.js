@@ -1,4 +1,6 @@
-server_ip = 'http://10.0.1.30:8000'
+server_ip = '10.0.1.30'
+port = 8000
+ws_port = 8001
 size = 100
 
 raw_pixels = "";
@@ -62,13 +64,6 @@ function start() {
   update();
 }
 
-async function fetch_data() {
-  const url = server_ip + "/get_pixels";
-  const response = await fetch(url);
-  fetched_data = await response.text();
-  return fetched_data;
-}
-
 function draw_on_display(raw_pixels) {
   var c = document.getElementById("canvas");
   var ctx = c.getContext("2d");
@@ -82,10 +77,24 @@ function draw_on_display(raw_pixels) {
   }
 }
 
+function handleMsg(msg) {
+  console.log(msg);
+  if (msg.startsWith("data:")) {
+    draw_on_display(msg.replace("data:", ""));
+  }
+}
+
 function update() {
-  fetch_data().then((result) => {
-    draw_on_display(result)
+  const socket = new WebSocket("ws://" + server_ip + ":" + ws_port);
+
+  socket.addEventListener("open", function (event) {
+    socket.send("get_pixels");
   });
 
-  setTimeout(update, 10000);
+  socket.addEventListener("message", function (event) {
+    handleMsg(event.data);
+  });
+
+  
+  setTimeout(update, 1000);
 }

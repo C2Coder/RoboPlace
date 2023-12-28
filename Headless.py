@@ -5,25 +5,28 @@ import schedule
 import jacserial
 import sys
 import requests
+import asyncio
 import math
+import websockets
 
 size = 100
 
-server_ip = 'https://roboplace.vercel.app'
+#server_ip = 'roboplace.vercel.app'
+server_ip = '10.0.1.30'
 
-port = sys.argv[1]
 
 try:
     port = sys.argv[1]
     mode = sys.argv[2]
 except:
     print()
-    print(f'Usage ./Headles.py <port> <Jaculus or Normal>')
+    print(f'Usage python3 Headles.py <port> <Jaculus or Normal>')
     print()
     print(f'Example: python3 Headles.py COM26 Normal')
     print(f'Example: python3 Headles.py /dev/ttyACM0 Jaculus')
     print()
     exit()
+
 ser = jacserial.Serial(port, 115200, timeout=1)
 
 start_time = math.floor(time.time())
@@ -53,22 +56,35 @@ colors = [
         "purple"
 ]
 
+class ws:
+    port = 8001
+    async def send_cmd(cmd):
+        url = f"ws://{server_ip}:{ws.port}"
+        async with websockets.connect(url) as webs:
+            # Send a greeting message
+            await webs.send(cmd)
+    async def get_pixels():
+        url = f"ws://{server_ip}:{ws.port}"
+        async with websockets.connect(url) as webs:
+            # Send a greeting message
+            await webs.send("get_pixels")
+            msg = await webs.recv()
+            return msg
 def reader():
     global ser
-    if (mode == "Jaculus"):
-        cmds = ser.readline_jac()
-    elif (mode == "Normal"):
-        cmds = ser.readline()
-    else:
-        print('Wrong mode')
-        print('You selected => ' + mode)
-        print('Options are => Jaculus or Normal')
 
-    if len(cmds) < 5:
-        return
-
-    handle_cmds(parse(cmds))
-
+    while True:
+        # read serial
+        if mode == "Jaculus":
+            line = ser.readline_jac()
+        elif mode == "Normal":
+            line = ser.readline()
+        if len(line) == 0:
+            break  # break from loop
+        toks = parse(line)
+        if toks is None:
+            continue  # next loop
+        handle_cmds(toks)
 
 def parse(input):
     data = input.split(" ")
@@ -86,31 +102,32 @@ def handle_cmds(toks):
     #    80001    paint    10      10      red
     user_id = toks[0]
     cmd = toks[1]
-    toks[4] = toks[4].lower()
 
     # Handle timeouts
-    # if user_id in timeouts and user_id != "ELKS":
-    if user_id in timeouts:
+    if user_id in timeouts and user_id != "elks":
+    # if user_id in timeouts:
         return
     else:
         timeouts[user_id] = math.floor(time.time() - start_time)
-    
-    if cmd == 'paint':
-        if toks[4] not in colors:
-            print(f'{user_id} >>> {toks[1]} {toks[2]} {toks[3]} {toks[4]} (WRONG COLOR)')
-            return
-        elif int(toks[2]) >= size or int(toks[3]) >= size:
-            print(f'{user_id} >>> {toks[1]} {toks[2]} {toks[3]} {toks[4]} (OUT OF LIMITS)')
-            return
-        else:
-            print(f'{user_id} >>> {toks[1]} {toks[2]} {toks[3]} {toks[4]}')
-            
-    elif cmd == 'test':
-        print(f'{user_id} >>> {toks[1]}')
-        return
-    
-    send_change(toks[2], toks[3], toks[4])
+    try:
+        if cmd == 'paint':
+            if toks[4] not in colors:
+                print(f'{user_id} >>> {toks[1]} {toks[2]} {toks[3]} {toks[4].lower()} (WRONG COLOR)')
+                return
+            elif int(toks[2]) >= size or int(toks[3]) >= size:
+                print(f'{user_id} >>> {toks[1]} {toks[2]} {toks[3]} {toks[4].lower()} (OUT OF LIMITS)')
+                return
+            else:
+                print(f'{user_id} >>> {toks[1]} {toks[2]} {toks[3]} {toks[4].lower()}')
 
+        elif cmd == 'test':
+            print(f'{user_id} >>> {toks[1]}')
+            return
+
+        toks[4] = toks[4].lower()
+        send_change(toks)
+    except KeyboardInterrupt:
+        return
 
 def timeout_handler():
     global timeouts,timeout,  start_time
@@ -122,13 +139,9 @@ def timeout_handler():
             #print("Removed: " + id)
 
 
-def send_change(x, y, color):
-    obj = {str(x) + "_" + str(y): str(color)}
-    req = requests.post(url=server_ip + '/post', json=obj)
-
-    if (req.text != "pass"):
-        # fuck, something went wrong
-        print("Something went wrong on the server")
+def send_change(toks):
+    data = f"{toks[0]} {toks[1]} {toks[2]} {toks[3]} {toks[4]}"
+    asyncio.get_event_loop().run_until_complete(ws.send_cmd(data))
 
 
 schedule.every(0.2).seconds.do(reader)
