@@ -11,6 +11,29 @@ import asyncio
 
 size = 100
 
+pixels = [[0 for i in range(size)] for j in range(size)]
+
+chars = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p"]
+
+colors = [
+    "white",
+    "platinum",
+    "grey",
+    "black",
+    "pink",
+    "red",
+    "orange",
+    "brown",
+    "yellow",
+    "lime",
+    "green",
+    "cyan",
+    "lblue",
+    "blue",
+    "mauve",
+    "purple",
+]
+
 class logger:
     logs = []
     file = "logs.txt"
@@ -65,10 +88,7 @@ class server:
 
     def getIp():
         try:
-            # Get a list of all interfaces
             interfaces = ni.interfaces()
-
-            # Iterate through interfaces to find the one that's not loopback and has an IP address
             for interface in interfaces:
                 if interface != "lo":
                     iface_details = ni.ifaddresses(interface)
@@ -173,28 +193,7 @@ class ws:
             return
 
 
-pixels = [[0 for i in range(size)] for j in range(size)]
 
-chars = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p"]
-
-colors = [
-    "white",
-    "platinum",
-    "grey",
-    "black",
-    "pink",
-    "red",
-    "orange",
-    "brown",
-    "yellow",
-    "lime",
-    "green",
-    "cyan",
-    "lblue",
-    "blue",
-    "mauve",
-    "purple",
-]
 
 app = Flask(__name__)
 CORS(app)
