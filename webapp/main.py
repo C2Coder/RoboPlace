@@ -61,6 +61,17 @@ def proxy_alliances() -> dict:
         raise HTTPException(status_code=502, detail=f"failed to load alliances: {exc}") from exc
 
 
+@app.get("/api/heatmap")
+def proxy_heatmap() -> dict:
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get(f"{_server_url()}/api/heatmap")
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"failed to load heatmap: {exc}") from exc
+
+
 @app.get("/logo.svg")
 def logo() -> FileResponse:
     path = _logo_path()
@@ -77,7 +88,7 @@ def index() -> str:
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>RoboPlace</title>
-  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="icon" type="image/svg+xml" href="./logo.svg" />
   <style>
     :root {
       --bg: #0b0f14;
@@ -263,6 +274,23 @@ def index() -> str:
     .hidden {
       display: none;
     }
+
+    .footer {
+      margin-top: auto;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -276,6 +304,7 @@ def index() -> str:
       <div class="sideTop">
         <p id="status" class="status">loading...</p>
         <button id="fitBtn" class="fitBtn" type="button">fit</button>
+        <button id="modeBtn" class="fitBtn" type="button">mode: color</button>
         <div class="tabs">
           <button id="tabPlayers" class="tabBtn active" type="button">players</button>
           <button id="tabAlliances" class="tabBtn" type="button">alliances</button>
@@ -288,6 +317,7 @@ def index() -> str:
       </div>
       <div id="players" class="players"></div>
       <div id="alliances" class="alliances hidden"></div>
+      <div class="footer">made by <a href="https://github.com/C2Coder" target="_blank">C2Coder</a> • 2026</div>
     </aside>
   </main>
 
@@ -298,7 +328,9 @@ def index() -> str:
     const viewer = document.getElementById('viewer');
     const statusEl = document.getElementById('status');
     const fitBtn = document.getElementById('fitBtn');
+    const modeBtn = document.getElementById('modeBtn');
     const tabPlayersBtn = document.getElementById('tabPlayers');
+    const basePath = (location.pathname === '/' ? '/' : './');
     const tabAlliancesBtn = document.getElementById('tabAlliances');
     const totalEl = document.getElementById('total');
     const playersCountEl = document.getElementById('playersCount');
@@ -307,6 +339,9 @@ def index() -> str:
     const alliancesEl = document.getElementById('alliances');
 
     let activeTab = 'players';
+    let viewMode = 'color';
+    let heatmapData = null;
+    let currentPixels = new Array(256).fill(null).map(() => new Array(256).fill([255,255,255]));
 
     const minScale = 1;
     const maxScale = 20;
@@ -328,12 +363,43 @@ def index() -> str:
       setZoom(fitScale);
     }
 
+    function heatmapColor(value, max) {
+      const t = max > 0 ? Math.min(1, Math.max(0, value / max)) : 0;
+      const bg = [11, 15, 20];
+      const mid = [128, 0, 128];
+      const fg = [255, 255, 255];
+      let src, dst, localT;
+      if (t < 0.5) {
+        src = bg;
+        dst = mid;
+        localT = t * 2;
+      } else {
+        src = mid;
+        dst = fg;
+        localT = (t - 0.5) * 2;
+      }
+      return [
+        Math.round(src[0] + (dst[0] - src[0]) * localT),
+        Math.round(src[1] + (dst[1] - src[1]) * localT),
+        Math.round(src[2] + (dst[2] - src[2]) * localT)
+      ];
+    }
+
     function drawCanvas(pixels) {
       const image = ctx.createImageData(256, 256);
       let idx = 0;
+      let maxHeat = 1;
+      if (viewMode === 'heatmap' && heatmapData && Array.isArray(heatmapData.heatmap)) {
+        maxHeat = Math.max(1, ...heatmapData.heatmap.flat());
+      }
       for (let y = 0; y < 256; y++) {
         for (let x = 0; x < 256; x++) {
-          const [r, g, b] = pixels[y][x];
+          let r, g, b;
+          if (viewMode === 'heatmap' && heatmapData && Array.isArray(heatmapData.heatmap)) {
+            ([r, g, b] = heatmapColor(heatmapData.heatmap[y]?.[x] ?? 0, maxHeat));
+          } else {
+            [r, g, b] = pixels[y][x];
+          }
           image.data[idx++] = r;
           image.data[idx++] = g;
           image.data[idx++] = b;
@@ -392,18 +458,22 @@ def index() -> str:
 
     async function refresh() {
       try {
-        const [canvasRes, statsRes, alliancesRes] = await Promise.all([
+        const [canvasRes, statsRes, alliancesRes, heatmapRes] = await Promise.all([
           fetch('/api/canvas'),
           fetch('/api/stats'),
-          fetch('/api/alliances')
+          fetch('/api/alliances'),
+          fetch('/api/heatmap')
         ]);
-        if (!canvasRes.ok || !statsRes.ok || !alliancesRes.ok) {
+        if (!canvasRes.ok || !statsRes.ok || !alliancesRes.ok || !heatmapRes.ok) {
           throw new Error('api error');
         }
         const canvasData = await canvasRes.json();
         const statsData = await statsRes.json();
         const alliancesData = await alliancesRes.json();
-        drawCanvas(canvasData.pixels);
+        const heatmapDataRaw = await heatmapRes.json();
+        heatmapData = heatmapDataRaw || null;
+        currentPixels = canvasData.pixels || currentPixels;
+        drawCanvas(currentPixels);
         totalEl.textContent = statsData.total_placements ?? 0;
         playersCountEl.textContent = statsData.total_players ?? 0;
         active24hEl.textContent = statsData.active_players_24h ?? 0;
@@ -440,6 +510,11 @@ def index() -> str:
     }, { passive: false });
 
     fitBtn.addEventListener('click', fitToViewport);
+    modeBtn.addEventListener('click', () => {
+      viewMode = viewMode === 'color' ? 'heatmap' : 'color';
+      modeBtn.textContent = `mode: ${viewMode}`;
+      refresh();
+    });
     tabPlayersBtn.addEventListener('click', () => {
       activeTab = 'players';
       applyTab();

@@ -1,10 +1,13 @@
 # RoboPlace
 
-Three-part Python implementation of a small r/place clone backend stack:
+A multi-part Python r/place-style canvas system with an ESP32 serial connector, web viewer, manual painter, log viewer, and alliance/name commands.
 
-- `server`: authoritative storage for a 256x256 canvas and full placement history.
-- `webapp`: read-only map viewer with zoom + scroll and player statistics.
-- `connector`: ESP32 serial middleman for ESP-NOW packets; forwards valid paint/command messages to server.
+Parts:
+- `server`: authoritative canvas storage, cooldown, player names, alliances, event logging
+- `connector`: ESP-NOW serial middleman + MAC-to-player mapping manager
+- `webapp`: public read-only viewer with zoom, fit, heatmap toggle, stats, alliances tab
+- `painter`: manual paint + command sender
+- `logviewer`: filtered server event log reader
 
 ## 1) Install
 
@@ -28,109 +31,95 @@ make server
 make connector
 make webapp
 make painter
+make logviewer
 make services
 ```
 
 ### Server (backbone)
 
 ```bash
-uvicorn server.main:app --host 0.0.0.0 --port 8000 --reload
+make server
 ```
 
-Server endpoints:
+Serves on `http://0.0.0.0:8000`.
 
+Key endpoints:
 - `GET /health`
 - `GET /api/canvas`
-- `POST /api/paint`
+- `POST /api/paint` (primary; legacy `POST /api/place`)
 - `POST /api/command`
 - `GET /api/cooldown/{player_id}`
 - `GET /api/heatmap`
 - `GET /api/stats`
 - `GET /api/alliances`
+- `GET /api/logs`
 
-`POST /api/paint` is protected with the `X-RoboPlace-Secret` header when `ROBOPLACE_SHARED_SECRET` is set.
+Server-managed behavior:
+- per-player paint cooldown (`ROBOPLACE_COOLDOWN_SECONDS`)
+- player display names (`set_name`)
+- alliance lifecycle: create/join/leave/kick/delete
+- event logging for paints, commands, and cooldown rejects
 
-Server responsibilities now include:
-
-- 10s per-player paint cooldown (configurable via `ROBOPLACE_COOLDOWN_SECONDS`)
-- player display names
-- alliance lifecycle and membership commands
-
-### Connector (ESP serial receiver)
+### Connector (ESP serial receiver + MAC manager)
 
 ```bash
-uvicorn connector.main:app --host 0.0.0.0 --port 8001 --reload
+make connector
 ```
 
-Connector environment variables:
+Serves on `http://0.0.0.0:8001`.
+MAC manager UI: `http://<host>:8001/mac`
 
+Env:
 - `ROBOPLACE_SERVER_URL` (default `http://127.0.0.1:8000`)
 - `ROBOPLACE_SHARED_SECRET` (must match server)
 - `ROBOPLACE_SERIAL_PORT` (default `/dev/ttyUSB0`)
 - `ROBOPLACE_SERIAL_BAUD` (default `115200`)
+- `ROBOPLACE_DEFAULT_PLAYER_ID` (default `anonymous`)
 
-Connector endpoints:
-
+Endpoints:
 - `GET /health`
-- `POST /api/device/paint` (manual HTTP test path using 9-bit color)
-- `POST /api/device/command` (manual HTTP command path)
-- `POST /api/device/serial-line` (inject one serial line manually)
+- `POST /api/device/paint`
+- `POST /api/device/command`
+- `POST /api/device/serial-line`
 - `GET /api/events/recent`
+- `GET /api/mac-mappings`
+- `POST /api/mac-mappings`
+- `DELETE /api/mac-mappings/{mac}`
+- `POST /api/mac-mappings/import`
+- `DELETE /api/mac-mappings`
+- `GET /api/mac-mappings/export`
 
-Serial input line format (one JSON object per line):
+Serial input line format:
 
 ```json
 {"mac":"AA:BB:CC:DD:EE:FF","message":{"player_id":"p1","x":10,"y":20,"color":"753"}}
 ```
 
-9-bit color format uses `000-777` (`R G B`, each digit 0..7). Connector validates this and converts to RGB for server storage.
+9-bit color is `000-777`. The connector converts it to RGB before forwarding to the server.
 
-The connector reads serial continuously, parses each line, and forwards paint/command messages to server.
-
-Serial command example:
-
-```json
-{"mac":"AA:BB:CC:DD:EE:FF","message":{"player_id":"p1","command":"set_name","value":"RoboPilot"}}
-```
-
-Example manual test request to connector:
-
-```bash
-curl -X POST http://127.0.0.1:8001/api/device/paint \
-  -H "Content-Type: application/json" \
-  -d '{
-    "player_id": "player-a",
-    "x": 10,
-    "y": 20,
-    "color": "753"
-  }'
-```
+MAC mapping behavior:
+- Unknown MACs resolve to `ROBOPLACE_DEFAULT_PLAYER_ID`
+- Use `/mac` to add/override/delete mappings at runtime
+- CSV import supports `add` (merge) and `override` (replace all)
 
 ### Webapp (read-only map)
 
 ```bash
-uvicorn webapp.main:app --host 0.0.0.0 --port 8002 --reload
+make webapp
 ```
 
-Webapp environment variables:
-
-- `ROBOPLACE_SERVER_URL` (default `http://127.0.0.1:8000`)
-
 Open:
-
 - `http://127.0.0.1:8002/`
 
 Features:
-
-- Shows the 256x256 map in read-only mode.
-- Scroll/pan within the map container.
-- Zoom with keyboard shortcuts (+ / - / 0) and Ctrl+mouse wheel, plus fit button.
-- Displays player statistics:
-  - total placements
-  - total players
-  - active players in the last 24h
-  - per-player placements, unique pixels, first placement, and latest coordinates/time
-- Includes tab for alliances showing alliance members.
+- 256x256 canvas viewer
+- pan by scrolling the map area
+- zoom with `+` / `-` / `0` keys, `Ctrl+wheel`, or the `fit` button
+- mode toggle: `color` or `heatmap`
+- stats: placements, players, 24h active
+- players tab: sorted list with name/alliance/last location
+- alliances tab: alliance cards with members
+- footer: `made by C2Coder • 2026`
 
 ### Painter (manual editor, no ESP required)
 
@@ -139,34 +128,74 @@ make painter
 ```
 
 Open:
-
 - `http://127.0.0.1:8003/`
 
-This sends pixel and command requests directly to the server (`/api/paint`, `/api/command`) using the shared secret from `.env`.
+- Sends pixel commands to server `POST /api/paint`
+- Sends commands to server `POST /api/command` (`set_name`, alliance actions)
 
-## Data and stats
-
-- Server stores current canvas in `server/roboplace.db`.
-- Server stores every placement event in `placements` table for later heatmap/stat generation.
-- Heatmap data is available via `GET /api/heatmap`.
-
-## Optional environment variables
-
-- `ROBOPLACE_DB_PATH` for custom server DB path.
-- `ROBOPLACE_CONNECTOR_DB_PATH` for custom connector DB path.
-
-## Service files (systemd)
-
-Generate service files with absolute, correct paths:
+### LogViewer
 
 ```bash
-./setup_services.sh
+make logviewer
 ```
 
-Generated files are written to `services/`.
+Open:
+- `http://127.0.0.1:8004/`
 
-Install and start services:
+- Reads server event logs via `GET /api/logs`
+- filter by event type, player_id, time range, limit
+
+## 3) Data
+
+- Server DB: `server/roboplace.db`
+- Connector DB: `connector/connector.db`
+- Full placement history is stored in `placements`
+- Heatmap is available via `GET /api/heatmap`
+- Server `event_log` records paints, commands, and cooldown rejections
+
+## 4) Environment variables
+
+- `ROBOPLACE_SHARED_SECRET`
+- `ROBOPLACE_COOLDOWN_SECONDS`
+- `ROBOPLACE_DB_PATH`
+- `ROBOPLACE_CONNECTOR_DB_PATH`
+- `ROBOPLACE_SERVER_URL`
+- `ROBOPLACE_SERIAL_PORT`
+- `ROBOPLACE_SERIAL_BAUD`
+- `ROBOPLACE_DEFAULT_PLAYER_ID`
+
+## 5) Nginx reverse proxy
+
+See `nginx/roboplace.conf` for an example local-domain setup.
+
+Example deployment:
+```text
+roboplace.robotickytabor.cz/        -> webapp
+roboplace.robotickytabor.cz/painter -> painter (restricted)
+roboplace.robotickytabor.cz/connector -> connector MAC manager (restricted)
+roboplace.robotickytabor.cz/logs    -> logviewer (restricted)
+```
+
+## 6) Systemd services
+
+Generate service files:
 
 ```bash
-./setup_services.sh --install
+make services
 ```
+
+Install and start:
+
+```bash
+sudo ./setup_services.sh --install
+```
+
+## 7) API reference
+
+See `API.md` for full request/response examples and the commands reference (`set_name`, `alliance_create`, `alliance_join`, `alliance_leave`, `alliance_kick`, `alliance_delete`).
+
+## 8) Notes
+
+- The public web viewer is read-only.
+- Restricted tools accept traffic from allowed IPs when behind nginx; otherwise they are open on localhost.
+- Connector MAC mappings can be updated live without restarting.

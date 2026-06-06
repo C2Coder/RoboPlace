@@ -115,14 +115,36 @@ EOF
 
 echo "Generated service files in ${SERVICES_DIR}"
 
-if [[ "${1:-}" == "--install" ]]; then
+if [[ "${1:-}" == "--install" ]] || [[ "${2:-}" == "--install" ]]; then
   sudo cp "${SERVICES_DIR}"/*.service /etc/systemd/system/
   sudo systemctl daemon-reload
-  sudo systemctl enable roboplace-server roboplace-connector roboplace-webapp roboplace-painter
-  sudo systemctl restart roboplace-server roboplace-connector roboplace-webapp roboplace-painter
+  sudo systemctl enable roboplace-server roboplace-connector roboplace-webapp roboplace-painter roboplace-logviewer
+  sudo systemctl restart roboplace-server roboplace-connector roboplace-webapp roboplace-painter roboplace-logviewer
   echo "Installed and started services."
+  [[ "${1:-}" == "--install" && "${2:-}" != "--nginx" ]] && exit 0
+  [[ "${2:-}" == "--install" && "${1:-}" != "--nginx" ]] && exit 0
+fi
+
+if [[ "${1:-}" == "--nginx" ]] || [[ "${2:-}" == "--nginx" ]]; then
+  if ! command -v nginx >/dev/null 2>&1; then
+    echo "nginx not found on this machine. Install it first or skip --nginx."
+    exit 1
+  fi
+  NGINX_SRC="${PROJECT_DIR}/nginx/roboplace.conf"
+  if [[ ! -f "${NGINX_SRC}" ]]; then
+    echo "Missing ${NGINX_SRC}"
+    exit 1
+  fi
+  sudo cp "${NGINX_SRC}" /etc/nginx/sites-available/roboplace
+  if [[ ! -e /etc/nginx/sites-enabled/roboplace ]]; then
+    sudo ln -s /etc/nginx/sites-available/roboplace /etc/nginx/sites-enabled/roboplace
+  fi
+  sudo nginx -t && sudo systemctl reload nginx
+  echo "Installed nginx site and reloaded nginx."
   exit 0
 fi
 
-echo "To install them system-wide, run:"
-echo "  ./setup_services.sh --install"
+echo "Usage:"
+echo "  ./setup_services.sh --install    # install systemd services"
+echo "  ./setup_services.sh --nginx      # install nginx site config"
+echo "  ./setup_services.sh --install --nginx  # do both"
